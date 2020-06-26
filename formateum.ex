@@ -142,7 +142,7 @@ export function format_file(sequence in_filename, sequence out_filename)
     sequence errors = {}
     sequence block_stack = {}
     
-    sequence out = tokenize_file(in_filename)
+    sequence out = tokenize_file(in_filename,, io:TEXT_MODE)
     sequence tokens
     object error_code       , error_line, error_column
     {tokens, error_code, error_line, error_column} = out    
@@ -175,12 +175,11 @@ export function format_file(sequence in_filename, sequence out_filename)
             case T_WHITE then 
                 if find('\n', v) then
                     new_line_starts = 1
-                    current_line = current_line & 10
                     if this_line_shift < 0 then
                         errors = append(errors, sprintf("Error processing at %d:%d\n", {in_filename} & t[TLNUM..TLPOS]))
                         this_line_shift = 0
                     end if
-                    current_line = repeat(' ', this_line_shift * 4) & current_line
+                    current_line = repeat(' ', this_line_shift * 4) & current_line & '\n'
                     puts(outfn, current_line)
                     --show_tokens(outfn, tokens[token_start..tokeni])
                     token_start = tokeni + 1
