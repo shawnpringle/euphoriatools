@@ -1,14 +1,22 @@
 # Source Check
 
 This program verifies that everything you have define_c_func and define_c_proc for
-are infact available in a supplied DLL.  
+are infact available in a supplied DLL.
 
 Usage is:
 
-eui source_check.ex dll_file e_file
+eui source_check.ex [--dll dll_file] e_file
 
-* dll_file is a DLL
-* e_file   is a dot-e file.
+dll_file is a DLL
+e_file   is a dot-e file.
+
+The dll_file is optional.  The dll filename will be collected from e_file itself.
+
+Nota Bene: This is not a complete parser/interpreter.  So, it is easy for this program to get 
+things totally wrong but if other routines are getting loaded from the same DLL through this program
+and the routines are all of the form `id = open_dll(dll_num, string literal', then I wouldn't expect
+false failures.
+
 
 # CURL Import
 
@@ -67,15 +75,15 @@ Thanks for using Euphoria Tools!
 
 Special thanks to the Euphoria community!
 
+# Tips
+
+* Bitcoin Cash bitcoincash:qqtes6cafexr00tzv9r360rd3g9l3zssuuj3mqzxpq
+* Bitcoin Core bitcoin:1LT2zLt4uooLfnTFfBJGzpTY4EY1SWZxoJ
+* Ethereum Tether 0x34caA5BE5e806d10CfEbC4ec293d5888bbb17Af5
+
 # Links
 
 [Euphoria](https://openeuphoria.org/index.wc)
-
-[Bitcoin Cash](bitcoincash:qqtes6cafexr00tzv9r360rd3g9l3zssuuj3mqzxpq)
-
-[Bitcoin Core](bitcoin:1LT2zLt4uooLfnTFfBJGzpTY4EY1SWZxoJ)
-
-[Ethereum Tether](0x34caA5BE5e806d10CfEbC4ec293d5888bbb17Af5)
 
 [Paypal](paypal.me/sdpringle)
 
