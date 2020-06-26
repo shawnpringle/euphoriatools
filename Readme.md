@@ -7,9 +7,8 @@ Usage is:
 
 eui source_check.ex dll_file e_file
 
-dll_file is a DLL
-e_file   is a dot-e file.
-
+* dll_file is a DLL
+* e_file   is a dot-e file.
 
 # CURL Import
 
@@ -18,11 +17,12 @@ It is recommended that you create a wrapper using the generated dot-e file.
 
 update the CURL constants with:
 
+```shell
 eui curlimport.ex < /usr/include/curl/curl.h > primitive_curl.e
-
+```
 
 Then create a curl.e do things like:
-<eucode>
+```euphoria
 public include primitive_curl.e as p
 include std/types.e
 include std/dll.e
@@ -33,7 +33,7 @@ public function curl_mime_name(atom part, cstring name)
     atom ret = p:curl_mime_name(part, name_ptr)
     return ret
 end function
-</eucode>
+```
 
 
 # Formateum
@@ -45,11 +45,11 @@ statement, other statements are four spaces more to the right.
 Nota Bena: This modifies source code.  It's pretty safe.
 
 Usage is:
-
+```
 eui formateum.ex [--follow|-f] source_file1 source_file2 ....
-
--f or --follow is optional.
-source_file1 source_file2 ...   should be at least one source file.
+```
+* -f or --follow is optional.
+* source_file1 source_file2 ...   should be at least one source file.
 
 If you use the --follow option, the program will wait for changes and reproess the file after each
 change to the file's timestamp.
@@ -71,10 +71,11 @@ Special thanks to the Euphoria community!
 
 [Euphoria](https://openeuphoria.org/index.wc)
 
-[Patreon](https://www.patreon.com/CrazyVikingGamer)
-
 [Bitcoin Cash](bitcoincash:qqtes6cafexr00tzv9r360rd3g9l3zssuuj3mqzxpq)
+
 [Bitcoin Core](bitcoin:1LT2zLt4uooLfnTFfBJGzpTY4EY1SWZxoJ)
+
 [Ethereum Tether](0x34caA5BE5e806d10CfEbC4ec293d5888bbb17Af5)
+
 [Paypal](paypal.me/sdpringle)
 
