@@ -1,9 +1,9 @@
 -- This tool creates a dot-e file with the Header.
--- It is recommended that you create a wrapper using the generated dot-e file.  
+-- It is recommended that you create a wrapper using the generated dot-e file.
 --
 -- update the CURL constants with:
 -- eui curlimport.ex < /usr/include/curl/curl.h > primitive_curl.e
--- 
+--
 --
 -- Then create a curl.e do things like:
 -- <eucode>
@@ -65,7 +65,7 @@ ms = regex:all_matches( curlproto_pattern, file_data)
 if sequence(ms) then
     for mi = 1 to length(ms) do
         object m = ms[mi]
-        printf(OUT,"public constant %s = power(2,%s)\n", m[2..3]) 
+        printf(OUT,"public constant %s = power(2,%s)\n", m[2..3])
     end for
 end if
 
@@ -114,9 +114,9 @@ for h = 1 to length(function_matches) do
     while RT[1] = ' ' do
         RT = RT[2..$]
     end while
-    
-    
-    
+
+
+
     -- printf(OUT, "= %d captured groups\n", {length(m)-1})
     sequence AL = m[5] -- argument list
     sequence arg_list = ""
@@ -133,12 +133,12 @@ for h = 1 to length(function_matches) do
     if sequence(argument_matches) then
         for j = 1 to length(argument_matches) do
             sequence argument = argument_matches[j][1]
-            
+
             sequence argument_name = argument_matches[j][$]
             if not equal(argument,"") and atom(regex:find(whitespace_pattern, argument)) then
                 argument_count += 1
                 sequence argument_groups = split(regex:new(" "), argument)
-                
+
                 -- printf(OUT, "argument = \'%s\'\n", {argument})
                 -- pretty_print(OUT, argument_groups, {2})
                 stringASCII next_type = c_type_to_euc_type(argument, argument_groups)
@@ -156,10 +156,10 @@ for h = 1 to length(function_matches) do
                     end if
                     if equal(next_type,"C_BOOL") then
                         arg_list &= next_type & ", "
-                        eu_arg_list &= sprintf("integer %s, ", {argument_name})			
+                        eu_arg_list &= sprintf("integer %s, ", {argument_name})
                     elsif not equal(next_type, "") then
                         arg_list &= next_type & ", "
-                        eu_arg_list &= sprintf("atom %s, ", {argument_name})			
+                        eu_arg_list &= sprintf("atom %s, ", {argument_name})
                     end if
                 else
                     argument_name = ""
@@ -181,12 +181,12 @@ for h = 1 to length(function_matches) do
         types = append(types, C_RT)
     end if
     if equal(RT, "") then
-        printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, FN, arg_list}) 
+        printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, FN, arg_list})
         printf(OUT, "public procedure %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\tc_proc(%sx, {%s})\n", {FN, join(",", argument_names)})
         printf(OUT, "end procedure\n", {})
     else
-        printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, FN, arg_list, RT}) 
+        printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, FN, arg_list, RT})
         printf(OUT, "public function %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, join(",", argument_names)})
         printf(OUT, "end function\n", {})
