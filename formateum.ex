@@ -179,7 +179,12 @@ export function format_file(sequence in_filename, sequence out_filename)
                         errors = append(errors, sprintf("Error processing at %d:%d\n", {in_filename} & t[TLNUM..TLPOS]))
                         this_line_shift = 0
                     end if
-                    current_line = repeat(' ', this_line_shift * 4) & current_line & '\n'
+                    current_line = repeat(' ', this_line_shift * 4) & current_line
+					 -- remove trailing white
+                    while length(current_line) > 0 and find(current_line[$], " \r\t") do
+                    	current_line = remove(current_line, length(current_line))
+                    end while
+                    current_line = append(current_line, '\n')
                     puts(outfn, current_line)
                     --show_tokens(outfn, tokens[token_start..tokeni])
                     token_start = tokeni + 1
