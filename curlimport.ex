@@ -182,12 +182,12 @@ for h = 1 to length(function_matches) do
     end if
     if equal(RT, "") then
         printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, FN, arg_list})
-        printf(OUT, "public procedure %s(%s)\n", {FN, eu_arg_list})
+        printf(OUT, "export procedure %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\tc_proc(%sx, {%s})\n", {FN, join(",", argument_names)})
         printf(OUT, "end procedure\n", {})
     else
         printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, FN, arg_list, RT})
-        printf(OUT, "public function %s(%s)\n", {FN, eu_arg_list})
+        printf(OUT, "export function %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, join(",", argument_names)})
         printf(OUT, "end function\n", {})
     end if
