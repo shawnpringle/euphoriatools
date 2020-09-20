@@ -14,7 +14,7 @@ The dll_file is optional.  The dll filename will be collected from e_file itself
 
 Nota Bene: This is not a complete parser/interpreter.  So, it is easy for this program to get 
 things totally wrong but if other routines are getting loaded from the same DLL through this program
-and the routines are all of the form `id = open_dll(dll_num, string literal', then I wouldn't expect
+and the routines are all of the form `id = open_dll(dll_num, string literal)`, then I wouldn't expect
 false failures.
 
 
@@ -29,19 +29,7 @@ update the CURL constants with:
 eui curlimport.ex < /usr/include/curl/curl.h > primitive_curl.e
 ```
 
-Then create a curl.e do things like:
-```euphoria
-public include primitive_curl.e as p
-include std/types.e
-include std/dll.e
-
---CURL_EXTERN CURLcode curl_mime_name(curl_mimepart *part, const char *name)
-public function curl_mime_name(atom part, cstring name)
-    atom name_ptr = allocate_string(nmae, 1)
-    atom ret = p:curl_mime_name(part, name_ptr)
-    return ret
-end function
-```
+Then run curlimport_test.ex.  If you don't have curl libraries installed it wont work but it would be great if you have them.
 
 
 # Formateum
