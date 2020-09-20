@@ -24,6 +24,8 @@ include std/filesys.e
 include std/pretty.e
 include std/text.e
 include std/io.e
+include std/search.e
+include std/os.e
 
 cstring euphoria_exe, source_check_ex, dll_filename = "", e_filename = ""
 procedure usage()
@@ -72,11 +74,14 @@ function map_new()
 end function
 
 -- finds an index value for an object key x in map m.
+-- will return 0 if unsuccessful or an index representing where the key is in the map.
+-- Use the key with map_access() only.
 function map_find(sequence m, object x)
 	return find(x, m[1])
 end function
 
--- access an image from an index value.  map_access(m, 0) is always 0.  Even on empty maps. 
+-- Access an image from an index value.  map_access(m, 0) is always 0.  Even on empty maps.
+-- Use map_get to access by key. 
 function map_access(sequence m, integer i)
 	return m[2][i + 1]
 end function
@@ -84,6 +89,16 @@ end function
 -- get a value with a key into map m
 function map_get(sequence m, object x)
 	return map_access(m, map_find(m, x))
+end function
+
+-- replace the current value or add new entry
+function map_put(sequence m, object k, object v)
+	integer x = map_find(m, k)
+	if x = 0 then
+		return {append(m[1], k), append(m[2], v)}
+	end if
+	m[2][x+1] = v
+	return m
 end function
 
 sequence dlls = map_new()
@@ -159,7 +174,17 @@ for tok_i = 1 to length(et_tokens)-2 do
                 end if
                 cstring this_dll_filename = et_tokens[tok_i+2][TDATA]
                 cstring this_dll_idname   = before_equals_tok[TDATA]
-                dlls = { append(dlls[1], this_dll_idname), append(dlls[2], {this_dll_filename, open_dll({pathname(e_filename) & SLASH & this_dll_filename, this_dll_filename})}) }
+                integer add_flag = 1
+                integer dll_index = map_find(dlls, this_dll_idname)
+                if dll_index != 0 then
+                	-- already exists.
+                	add_flag = ( ends(this_dll_filename, ".dll") and (platform() = WINDOWS) ) or ( ends(this_dll_filename, ".dylib") and (platform() =OSX) )
+                		or ( ends(this_dll_filename, ".so") and not find(platform(), {WINDOWS, OSX}) )
+                end if
+                if add_flag then
+                	-- will clobber existing dll name and value if already there.
+	                dlls = map_put(dlls, this_dll_idname, {this_dll_filename, open_dll({pathname(e_filename) & SLASH & this_dll_filename, this_dll_filename})})
+	        end if
         end switch
     end if
 end for
