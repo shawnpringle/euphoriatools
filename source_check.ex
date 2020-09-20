@@ -21,11 +21,14 @@ include std/dll.e
 include std/types.e
 include euphoria/tokenize.e
 include std/filesys.e
+include std/pretty.e
+include std/text.e
+include std/io.e
 
 cstring euphoria_exe, source_check_ex, dll_filename = "", e_filename = ""
 procedure usage()
-    display("Usage:\n" &
-    "\t\teui source_check.ex [--dll dll_filenae] e_filename")
+    puts(io:STDERR, "Usage:\n" &
+    "\t\teui source_check.ex [--dll dll_filename] e_filename")
     maybe_any_key()
     abort(4)
 end procedure
@@ -60,11 +63,35 @@ if equal(e_filename, "") then
     usage()
 end if
 
-sequence dlls = { {}, {dll_id} }
+-- returns new map
+function map_new()
+    return { 
+                    {},
+                    {0}
+                }
+end function
+
+-- finds an index value for an object key x in map m.
+function map_find(sequence m, object x)
+	return find(x, m[1])
+end function
+
+-- access an image from an index value.  map_access(m, 0) is always 0.  Even on empty maps. 
+function map_access(sequence m, integer i)
+	return m[2][i + 1]
+end function
+
+-- get a value with a key into map m
+function map_get(sequence m, object x)
+	return map_access(m, map_find(m, x))
+end function
+
+sequence dlls = map_new()
 
 sequence et_tokens
 integer et_error, et_err_line, et_err_column
 integer succeses = 0, attempts = 0
+keep_whitespace(0)
 {et_tokens, et_error, et_err_line, et_err_column} = tokenize_file(e_filename)
 if et_error != ERR_NONE then
     display("Error loading E file")
@@ -87,7 +114,15 @@ for tok_i = 1 to length(et_tokens)-2 do
                 end if
                 tok = et_tokens[tok_i+2]
                 cstring dll_idname = tok[TDATA]
-                {dll_filename, dll_id} = dlls[2][find(dll_idname, dlls[1]) + 1]
+                object r = map_get(dlls, dll_idname)
+                if equal(r, 0)  then
+                	display("Name Error [1] is not declared in the e file", {dll_idname})
+                	if dll_id  = 0 then
+                		continue
+                	end if
+                else
+	                 {dll_filename, dll_id} = r        	
+                end if
                 tok = et_tokens[tok_i+4]
                 atom function_load = define_c_proc(dll_id, tok[TDATA], {})
                 attempts += 1
@@ -103,7 +138,23 @@ for tok_i = 1 to length(et_tokens)-2 do
                 end if
                 sequence equals_tok = et_tokens[tok_i-1]
                 sequence before_equals_tok = et_tokens[tok_i-2]
+                
                 if (equals_tok[TTYPE] != T_EQ) or (before_equals_tok[TTYPE] != T_IDENTIFIER) or et_tokens[tok_i+1][TTYPE] != T_LPAREN or et_tokens[tok_i+2][TTYPE] != T_STRING then
+                    cstring e
+
+                    if equals_tok[TTYPE] != T_EQ then
+                    	e  = "No equals sign preceeding open_dll:"
+                    elsif before_equals_tok[TTYPE] != T_IDENTIFIER then
+                    	display("Value is not an identifier [1] [2] L: [3] C: [4]", {before_equals_tok[TDATA], e_filename, tok[TLNUM], tok[TLPOS]} )
+                    	continue
+                    elsif et_tokens[tok_i + 1][TTYPE] != T_LPAREN then
+                    	e = "Left parenthesis did not follow open_dll."
+                    elsif equal(et_tokens[tok_i+2][TDATA], "{") then
+                        e = "open_dll(sequence of strings) is not supported by source_check.ex"
+                    else
+                    	e = "First argument to open_dll isn't a string.  It's " & et_tokens[tok_i + 2][TDATA] & " in" 
+ 		    end if
+                    display(e & " [1] L: [2] C: [3]", { e_filename, tok[TLNUM], tok[TLPOS] })
                     continue
                 end if
                 cstring this_dll_filename = et_tokens[tok_i+2][TDATA]
