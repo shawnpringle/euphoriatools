@@ -29,12 +29,16 @@ include std/pretty.e
 constant macroconstant     = regex:new("^ *#define +([A-Z][A-Z_]*) +([0-9]+)", MULTILINE)
 constant curloptionpattern = regex:new("CINIT\\(([A-Z_0-9]+), [A-Z]+, ([0-9]+)", MULTILINE)
 constant curlproto_pattern = regex:new("^ *#define (CURLPROTO_[A-Z]+) +\\(1<<([0-9]+)\\)", MULTILINE)
-constant curlfunction_pattern = regex:new(`CURL_EXTERN ([A-Za-z_]+\s*(\*)?)([a-z_]+)\((.*)\);`, DOTALL & UNGREEDY)
+constant curlfunction_pattern = regex:new(`CURL_EXTERN (const )?([A-Za-z_]+\s*(\*)?)([a-z_]+)\((.*)\);`, DOTALL & UNGREEDY)
 constant argument_list_pattern = regex:new(`([a-z_]+)`, CASELESS)
 constant curlfunction_argument_pattern = regex:new("(([A-Za-z_]+)( |\n|\t|[*])*)*([A-Za-z_]*)")
 constant whitespace_pattern = regex:new("^[ \t\n]*$")
 constant OUT = STDOUT, IN = STDIN
-                               
+           
+type non_empty_sequence(object x)
+	return sequence(x) and length(x) >= 1
+end type
+
 sequence dlls = command_line()
 dlls = dlls[3..$]
 -- First import the constants
@@ -79,14 +83,14 @@ if sequence(ms) then
 end if
 
 
-object function_locations = regex:find_all(curlfunction_pattern, file_data)
+--object function_locations = regex:find_all(curlfunction_pattern, file_data)
 object function_matches = regex:all_matches(curlfunction_pattern, file_data)
 if atom(function_matches) then
     puts(io:STDERR, "Cannot find matches\n")
     abort(0)
 end if
 
-function c_type_to_euc_type(sequence argument, sequence argument_groups)
+function c_type_to_euc_type(sequence argument, non_empty_sequence argument_groups)
     if equal(argument, "void") then
         return ""
         -- do nothing
@@ -114,9 +118,9 @@ sequence types = {"C_BOOL", "C_INT", "C_UINT", "C_DOUBLE", "C_LONGLONG", "C_LONG
 
 for h = 1 to length(function_matches) do
     sequence m = function_matches[h]
-    sequence FD = m[1]
-    sequence RT = m[2]
-    sequence FN = m[4]
+    sequence FD = m[2]
+    sequence RT = m[3]
+    sequence FN = m[5]
     while RT[$] = ' ' do
         RT = RT[1..$-1]
     end while
@@ -127,7 +131,7 @@ for h = 1 to length(function_matches) do
 
 
     -- printf(OUT, "= %d captured groups\n", {length(m)-1})
-    sequence AL = m[5] -- argument list
+    sequence AL = m[6] -- argument list
     sequence arg_list = ""
     sequence eu_arg_list = ""
     sequence argument_names = {}
@@ -146,7 +150,7 @@ for h = 1 to length(function_matches) do
             sequence argument_name = argument_matches[j][$]
             if not equal(argument,"") and atom(regex:find(whitespace_pattern, argument)) then
                 argument_count += 1
-                sequence argument_groups = regex:split(regex:new(" "), argument)
+                non_empty_sequence argument_groups = regex:split(" ", argument)
 
                 -- printf(OUT, "argument = \'%s\'\n", {argument})
                 -- pretty_print(OUT, argument_groups, {2})
