@@ -25,9 +25,17 @@ It is recommended that you create a wrapper using the generated dot-e file.
 
 update the CURL constants with:
 
+On Linux:
 ```shell
-eui curlimport.ex < /usr/include/curl/curl.h > primitive_curl.e
+eui curlimport.ex libcurl.so libcurl.dll < /usr/include/curl/curl.h > primitive_curl.e
 ```
+
+On Windows:
+```shell
+eui curlimport.ex libcurl.so libcurl.dll < d:\minGW\include\curl\curl.h > primitive_curl.e
+```
+
+On Windows, the path to the Curl header will vary.
 
 Then run curlimport_test.ex.  If you don't have curl libraries installed it wont work but it would be great if you have them.
 
