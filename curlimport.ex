@@ -22,31 +22,67 @@
 
 include std/regex.e as regex
 include std/io.e
-include joy.e
+include joy.e as joy
 include std/sort.e
 include std/text.e
 include std/pretty.e
+include std/filesys.e
+
 constant macroconstant     = regex:new("^ *#define +([A-Z][A-Z_]*) +([0-9]+)", MULTILINE)
-constant curloptionpattern = regex:new("CINIT\\(([A-Z_0-9]+), [A-Z]+, ([0-9]+)", MULTILINE)
+constant macrosymbol       = regex:new("^ *#define +([A-Z][A-Z_]*) +([A-Z][A-Z_0-9]*)", MULTILINE)
+constant curloptionpattern = regex:new(`CURLOPT\(([A-Z][A-Z_0-9]*), ([A-Z][A-Z0-9_]*), ([0-9]+)`, MULTILINE)
 constant curlproto_pattern = regex:new("^ *#define (CURLPROTO_[A-Z]+) +\\(1<<([0-9]+)\\)", MULTILINE)
 constant curlfunction_pattern = regex:new(`CURL_EXTERN (const )?([A-Za-z_]+\s*(\*)?)([a-z_]+)\((.*)\);`, DOTALL & UNGREEDY)
 constant argument_list_pattern = regex:new(`([a-z_]+)`, CASELESS)
 constant curlfunction_argument_pattern = regex:new("(([A-Za-z_]+)( |\n|\t|[*])*)*([A-Za-z_]*)")
 constant whitespace_pattern = regex:new("^[ \t\n]*$")
-constant OUT = STDOUT, IN = STDIN
-           
+integer OUT = STDOUT, IN = STDIN
+
+
+procedure usage()
+	-- usage help stub
+      abort(0)
+end procedure
+
+
 type non_empty_sequence(object x)
 	return sequence(x) and length(x) >= 1
 end type
 
-sequence dlls = command_line()
-dlls = dlls[3..$]
+sequence function_set = {}
+
+sequence args = command_line()
+if length(args) < 5 then
+      usage()
+end if
+
+stringASCII output = args[$-1]
+stringASCII input   = args[$]
+if compare(output,"-") then
+	if file_exists(output) then
+		printf(io:STDERR, "The output file, \"%s\", already exists.\n", {output})
+		abort(1)
+	end if
+
+	OUT = open(output, "w")
+else
+	output = "standard out"
+end if
+if compare(input, "-") then
+	IN     = open(input, "r")
+else
+	input = "standard in"
+end if
+sequence dlls = args[3..$-2]
 -- First import the constants
 
 if equal(dlls, {}) then
 	puts(io:STDERR, "Please specify possible dll names")
 	abort(1)
 end if
+
+printf(io:STDOUT, "Will write to '%s' and read from '%s' and will use the dlls listed %s?", {output, input, sprint(dlls)})
+PETC()
 
 
 sequence file_data = read_file(IN)
@@ -58,13 +94,7 @@ constant dll = open_dll(` & pretty_sprint(dlls, {2}) & `)
 
 `)
 
-object ms = regex:all_matches( curloptionpattern, file_data)
-if sequence(ms) then
-    for mi = 1 to length(ms) do
-        object m = ms[mi]
-        printf(OUT,"public constant CURLOPT_%s = %s,\n", {m[2], m[3]})
-    end for
-end if
+object ms
 
 ms = regex:all_matches( macroconstant, file_data)
 if sequence(ms) then
@@ -72,6 +102,27 @@ if sequence(ms) then
         object m = ms[mi]
         printf(OUT,"public constant %s = %s\n", {m[2], m[3]})
     end for
+end if
+
+ms = regex:all_matches( macrosymbol, file_data )
+if sequence(ms) then
+    printf(OUT, "public constant %s = %s", ms[1][2..3])
+    for mi = 2 to length(ms) do
+        object m = ms[mi]
+        printf(OUT,",\n\t\t%s = %s", m[2..3])
+    end for
+    puts(OUT, "\n\n")
+end if
+
+
+ms = regex:all_matches( curloptionpattern, file_data )
+if sequence(ms) then
+    printf(OUT, "public constant %s = %s + %s", ms[1][2..4])
+    for mi = 2 to length(ms) do
+        object m = ms[mi]
+        printf(OUT,",\n\t\t%s = %s + %s", m[2..4])
+    end for
+    puts(OUT,"\n\n")
 end if
 
 ms = regex:all_matches( curlproto_pattern, file_data)
@@ -127,9 +178,6 @@ for h = 1 to length(function_matches) do
     while RT[1] = ' ' do
         RT = RT[2..$]
     end while
-
-
-
     -- printf(OUT, "= %d captured groups\n", {length(m)-1})
     sequence AL = m[6] -- argument list
     sequence arg_list = ""
@@ -143,6 +191,7 @@ for h = 1 to length(function_matches) do
     end if
     argument_matches = regex:all_matches(curlfunction_argument_pattern, AL)
     integer argument_count = 0
+    function_set = append(function_set, FN)
     if sequence(argument_matches) then
         for j = 1 to length(argument_matches) do
             sequence argument = argument_matches[j][1]
@@ -150,8 +199,7 @@ for h = 1 to length(function_matches) do
             sequence argument_name = argument_matches[j][$]
             if not equal(argument,"") and atom(regex:find(whitespace_pattern, argument)) then
                 argument_count += 1
-                non_empty_sequence argument_groups = regex:split(" ", argument)
-
+                non_empty_sequence argument_groups = joy:split(" ", argument)
                 -- printf(OUT, "argument = \'%s\'\n", {argument})
                 -- pretty_print(OUT, argument_groups, {2})
                 stringASCII next_type = c_type_to_euc_type(argument, argument_groups)
@@ -161,10 +209,17 @@ for h = 1 to length(function_matches) do
                     end if
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
                         argument_name = sprintf("arg%d", {argument_count})
+                    else
+                    	integer sl = rfind(' ', argument_name)
+                    	argument_name = argument_name[sl+1..$]
                     end if
                     argument_names = append(argument_names, argument_name)
                     if not eu:find(next_type, types) then
+                    	if equal("C_CURL_FORMGET_CALLBACK",next_type) then
+                    		trace(1)
+                    	end if
                         puts(OUT, "export constant " & next_type & " = C_POINTER\n")
+                        flush(OUT)
                         types = append(types, next_type)
                     end if
                     if equal(next_type,"C_BOOL") then
@@ -205,6 +260,12 @@ for h = 1 to length(function_matches) do
         printf(OUT, "end function\n", {})
     end if
 end for
+pretty_print(io:STDERR, sort(function_set), {2})
 printf(io:STDERR, "= %d functions imported.", {length(function_matches)})
-abort(0)
-
+flush(OUT)
+if OUT != STDOUT then
+	close(OUT)
+end if
+if IN != STDIN then
+	close(IN)
+end if
