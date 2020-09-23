@@ -195,10 +195,13 @@ end function
 
 sequence types = {"C_BOOL", "C_INT", "C_UINT", "C_DOUBLE", "C_LONGLONG", "C_LONG", "C_ULONG", "C_POINTER"} -- list of declared c types in std/dll.e
 
+integer counter = 0
 procedure output_function(sequence m)
     sequence FD = m[2]
     sequence RT = m[3]
     sequence FN = m[5]
+    counter += 1
+    --printf(2, "<%d", {counter})
     while RT[$] = ' ' do
         RT = RT[1..$-1]
     end while
@@ -222,7 +225,7 @@ procedure output_function(sequence m)
     if sequence(argument_matches) then
         for j = 1 to length(argument_matches) do
             sequence argument = argument_matches[j][1]
-
+            --puts(2,"[")
             sequence argument_name = argument_matches[j][$]
             if not equal(argument,"") and atom(regex:find(whitespace_pattern, argument)) then
                 argument_count += 1
@@ -232,6 +235,9 @@ procedure output_function(sequence m)
                 stringASCII next_type = c_type_to_euc_type(argument, argument_groups)
                 if eu:compare(next_type,"") then
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
+                    	if counter = 29 then
+                    		trace(1)
+                    	end if
                         argument_name = regex:find_replace(regex:new("\\*"), argument_groups[$], "")
                     end if
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
@@ -257,6 +263,7 @@ procedure output_function(sequence m)
                     argument_name = ""
                 end if
             end if
+            --puts(2,"]")
         end for
         if length(arg_list) > 1 then
             arg_list = arg_list[1..$-2]
@@ -283,6 +290,7 @@ procedure output_function(sequence m)
         printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, joy:join(",", argument_names)})
         printf(OUT, "end function\n", {})
     end if
+    --puts(2, ">")
 end procedure
 
 
@@ -313,7 +321,7 @@ function resolve(sequence key)
 	unresolved = remove_item(key, unresolved)
 	return 1
 end function
-trace(1)
+
 resolve("CURLOPT_URL")
 pretty_print(1, resolved, {2})
 
