@@ -1,7 +1,7 @@
 -- This tool creates a dot-e file with the Header.
 -- It is recommended that you create a wrapper using the generated dot-e file.
 --
--- modified: $Date: 2020-09-22 111:25:40 -0300 (Vie, 09 Sep 2020) $ 
+-- modified: $Date: 2020-09-23 15:00:00 -0300 (Wed, 23 Sep 2020) $
 -- update the CURL constants with:
 -- eui curlimport.ex libcurl.dll libcurl.so < /usr/include/curl/curl.h > primitive_curl.e
 --
@@ -29,7 +29,7 @@ include std/pretty.e
 include std/filesys.e
 include std/map.e
 include std/sequence.e
-
+include std/dll.e
 
 constant calling_convention = "+"
 constant macroconstant     = regex:new("^ *#define +([A-Z][A-Z_]*) +([0-9]+)", MULTILINE)
@@ -44,51 +44,55 @@ integer OUT = STDOUT, IN = STDIN
 
 
 procedure usage()
-	-- usage help stub
-	puts(io:STDERR, "eui curlimport.ex [dll list] [C header file] [euphoria target]\n")
-        abort(0)
+    -- usage help stub
+    puts(io:STDERR, "eui curlimport.ex [dll list] [C header file] [euphoria target]\n")
+    abort(0)
 end procedure
 
 
 type non_empty_sequence(object x)
-	return sequence(x) and length(x) >= 1
+    return sequence(x) and length(x) >= 1
 end type
 
 sequence function_set = {}
 
 sequence args = command_line()
 if length(args) < 5 then
-      usage()
+    usage()
 end if
 
 stringASCII output = args[$]
 stringASCII input   = args[$-1]
 if eu:compare(output,"-") then
-	if file_exists(output) then
-		printf(io:STDERR, "The output file, \"%s\", already exists.\n", {output})
-		abort(1)
-	end if
-	OUT = open(output, "w")
-	output = '\'' & output & '\''
+    if file_exists(output) then
+        printf(io:STDERR, "The output file, \"%s\", already exists.\n", {output})
+        abort(1)
+    end if
+    OUT = open(output, "w")
+    output = '\'' & output & '\''
 else
-	output = "standard out"
+    output = "standard out"
 end if
 if eu:compare(input, "-") then
-	IN     = open(input, "r")
-	input = "\'" & input & "\'"
+    IN     = open(input, "r")
+    input = "\'" & input & "\'"
 else
-	input = "standard in"
+    input = "standard in"
 end if
 sequence dlls = args[3..$-2]
 -- First import the constants
 
 if equal(dlls, {}) then
-	puts(io:STDERR, "Please specify possible dll names")
-	abort(1)
+    puts(io:STDERR, "Please specify possible dll names")
+    abort(1)
 end if
-
+constant dll_handle = open_dll(dlls)
+if dll_handle = -1 then
+    printf(io:STDERR, "Warning: Unable to load from DLLs\n")
+end if
 printf(io:STDOUT, "Will write to %s and read from %s and will use the dlls listed %s?", {output, input, sprint(dlls)})
 PETC()
+
 
 
 sequence file_data = read_file(IN)
@@ -108,12 +112,12 @@ object ms
 
 ms = regex:all_matches( macroconstant, file_data)
 procedure output_macroconstant(sequence m)
-	printf(OUT,"public constant %s = %s\n", {m[2], m[3]})
+    printf(OUT,"public constant %s = %s\n", {m[2], m[3]})
 end procedure
 if sequence(ms) then
     for mi = 1 to length(ms) do
         sequence m = ms[mi]
-    	map:put(symbols, ms[mi][2], {m, {}, routine_id("output_macroconstant")})
+        map:put(symbols, ms[mi][2], {m, {}, routine_id("output_macroconstant")})
         -- output_macroconstant(ms[mi])
     end for
 end if
@@ -125,9 +129,9 @@ end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
-    	sequence m = ms[mi]
-    	map:put(symbols, m[2], {m, m[3..3], routine_id("output_macrosymbol")})
-    	-- output_macrosymbol(ms[mi])
+        sequence m = ms[mi]
+        map:put(symbols, m[2], {m, m[3..3], routine_id("output_macrosymbol")})
+        -- output_macrosymbol(ms[mi])
     end for
     puts(OUT, "\n")
 end if
@@ -135,13 +139,13 @@ end if
 
 ms = regex:all_matches( curloptionpattern, file_data )
 procedure output_curloption(sequence m)
-        printf(OUT,"public constant %s = %s + %s\n", m[2..4])
+    printf(OUT,"public constant %s = %s + %s\n", m[2..4])
 end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
-    	sequence m = ms[mi]
-    	map:put(symbols, m[2], {m, m[3..3], routine_id("output_curloption")})
+        sequence m = ms[mi]
+        map:put(symbols, m[2], {m, m[3..3], routine_id("output_curloption")})
         --output_curloption(ms[mi])
     end for
     puts(OUT, "\n")
@@ -149,15 +153,15 @@ end if
 
 ms = regex:all_matches( curlproto_pattern, file_data)
 procedure output_curlproto(sequence m)
-	printf(OUT,"public constant %s = power(2,%s)\n", m[2..3])
+    printf(OUT,"public constant %s = power(2,%s)\n", m[2..3])
 end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
         -- object m = ms[mi]
-	--output_curlproto(m)
-    	sequence m = ms[mi]
-    	map:put(symbols, m[2], {m, {}, routine_id("output_curlproto")})
+        --output_curlproto(m)
+        sequence m = ms[mi]
+        map:put(symbols, m[2], {m, {}, routine_id("output_curlproto")})
     end for
 end if
 
@@ -221,7 +225,6 @@ procedure output_function(sequence m)
     end if
     argument_matches = regex:all_matches(curlfunction_argument_pattern, AL)
     integer argument_count = 0
-    function_set = append(function_set, FN)
     if sequence(argument_matches) then
         for j = 1 to length(argument_matches) do
             sequence argument = argument_matches[j][1]
@@ -235,16 +238,13 @@ procedure output_function(sequence m)
                 stringASCII next_type = c_type_to_euc_type(argument, argument_groups)
                 if eu:compare(next_type,"") then
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
-                    	if counter = 29 then
-                    		trace(1)
-                    	end if
-                        argument_name = regex:find_replace(regex:new("\\*"), argument_groups[$], "")
+                        argument_name = joy:remove_objects(argument_groups[$], '*')
                     end if
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
                         argument_name = sprintf("arg%d", {argument_count})
                     else
-                    	integer sl = rfind(' ', argument_name)
-                    	argument_name = argument_name[sl+1..$]
+                        integer sl = rfind(' ', argument_name)
+                        argument_name = argument_name[sl+1..$]
                     end if
                     argument_names = append(argument_names, argument_name)
                     if not eu:find(next_type, types) then
@@ -271,7 +271,7 @@ procedure output_function(sequence m)
         end if
     end if
     printf(OUT, "%s\n", {regex:find_replace(regex:new("^", MULTILINE), FD, "--")})
-    object C_RT = c_type_to_euc_type(RT, regex:split(regex:new(" "), RT))
+    object C_RT = c_type_to_euc_type(RT, joy:split(" ", RT))
     if not equal(C_RT,0) then
         RT = C_RT
     end if
@@ -279,16 +279,22 @@ procedure output_function(sequence m)
         printf(OUT, "constant %s = C_POINTER\n", {C_RT})
         types = append(types, C_RT)
     end if
-    if equal(RT, "") then
+    -- we don't really want to call it.  We want to verify its presence.
+    atom routine_handle = define_c_proc(dll_handle, calling_convention & FN, {})
+    if routine_handle = -1 then
+        printf(io:STDERR, "Handle could not be used with this DLL... for routine %s... skipping...\n", {FN})
+    elsif equal(RT, "") then
         printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, calling_convention & FN, arg_list})
         printf(OUT, "export procedure %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\tc_proc(%sx, {%s})\n", {FN, joy:join(",", argument_names)})
         printf(OUT, "end procedure\n", {})
+        function_set = append(function_set, FN)
     else
         printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, calling_convention & FN, arg_list, RT})
         printf(OUT, "export function %s(%s)\n", {FN, eu_arg_list})
         printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, joy:join(",", argument_names)})
         printf(OUT, "end function\n", {})
+        function_set = append(function_set, FN)
     end if
     --puts(2, ">")
 end procedure
@@ -299,65 +305,65 @@ constant sks = map:keys(symbols)
 sequence_of_strings unresolved = sort(sks)
 sequence_of_strings resolved = {}
 
--- moves key from unresolved to resolved iff all dependencies 
+-- moves key from unresolved to resolved iff all dependencies
 -- can be resolved.
 -- return 1 if succesful and 0 on failure
 function resolve(sequence key)
-	if eu:find(key, resolved) then
-		return 1
-	end if
-	object data = map:get(symbols, key)
-	if atom(data) then
-		return 0
-	end if
-	sequence dep = data[2]
-	for k = 1 to length(dep) do
-		sequence d = dep[k]
-		if not resolve(d) then
-			return 0
-		end if
-	end for
-	resolved = append(resolved, key)
-	unresolved = remove_item(key, unresolved)
-	return 1
+    if eu:find(key, resolved) then
+        return 1
+    end if
+    object data = map:get(symbols, key)
+    if atom(data) then
+        return 0
+    end if
+    sequence dep = data[2]
+    for k = 1 to length(dep) do
+        sequence d = dep[k]
+        if not resolve(d) then
+            return 0
+        end if
+    end for
+    resolved = append(resolved, key)
+    unresolved = remove_item(key, unresolved)
+    return 1
 end function
 
 resolve("CURLOPT_URL")
 pretty_print(1, resolved, {2})
 
 for i = 1 to length(unresolved) do
-        if i > length(unresolved) then
-        	exit
-        end if
-	sequence key = unresolved[i]
-	sequence data = map:get(symbols, key)
-	integer r_id = data[3]
-	sequence dep = data[2]
-	sequence m = data[1]
-	if resolve(key) then
-	end if
+    if i > length(unresolved) then
+        exit
+    end if
+    sequence key = unresolved[i]
+    sequence data = map:get(symbols, key)
+    integer r_id = data[3]
+    sequence dep = data[2]
+    sequence m = data[1]
+    if resolve(key) then
+    end if
 end for
 
 for i = 1 to length(resolved) do
-	sequence key = resolved[i]
-	sequence data = map:get(symbols, key)
-	integer r_id = data[3]
-	sequence dep = data[2]
-	sequence m = data[1]
-	call_proc(r_id, {m})		
+    sequence key = resolved[i]
+    sequence data = map:get(symbols, key)
+    integer r_id = data[3]
+    sequence dep = data[2]
+    sequence m = data[1]
+    call_proc(r_id, {m})
 end for
 
 for h = 1 to length(function_matches) do
-    	sequence m = function_matches[h]
-    	output_function(function_matches[h])
+    sequence m = function_matches[h]
+    output_function(function_matches[h])
 end for
 
 pretty_print(io:STDERR, sort(function_set), {2})
-printf(io:STDERR, "= %d functions imported.", {length(function_matches)})
+printf(io:STDERR, "= %d functions seen.  %d functions imported.", {length(function_matches), length(function_set)})
 flush(OUT)
 if OUT != STDOUT then
-	close(OUT)
+    close(OUT)
 end if
 if IN != STDIN then
-	close(IN)
+    close(IN)
 end if
