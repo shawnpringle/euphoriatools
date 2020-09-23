@@ -97,39 +97,49 @@ constant dll = open_dll(` & pretty_sprint(dlls, {2}) & `)
 object ms
 
 ms = regex:all_matches( macroconstant, file_data)
+procedure output_macroconstant(sequence m)
+	printf(OUT,"public constant %s = %s\n", {m[2], m[3]})
+end procedure
 if sequence(ms) then
     for mi = 1 to length(ms) do
-        object m = ms[mi]
-        printf(OUT,"public constant %s = %s\n", {m[2], m[3]})
+        output_macroconstant(ms[mi])
     end for
 end if
 
 ms = regex:all_matches( macrosymbol, file_data )
+procedure output_macrosymbol(sequence m)
+    printf(OUT, "public constant %s = %s\n", m[2..3])
+end procedure
+
 if sequence(ms) then
-    printf(OUT, "public constant %s = %s", ms[1][2..3])
-    for mi = 2 to length(ms) do
-        object m = ms[mi]
-        printf(OUT,",\n\t\t%s = %s", m[2..3])
+    for mi = 1 to length(ms) do
+    	output_macrosymbol(ms[mi])
     end for
-    puts(OUT, "\n\n")
+    puts(OUT, "\n")
 end if
 
 
 ms = regex:all_matches( curloptionpattern, file_data )
+procedure output_curloption(sequence m)
+        printf(OUT,"public constant %s = %s + %s\n", m[2..4])
+end procedure
+
 if sequence(ms) then
-    printf(OUT, "public constant %s = %s + %s", ms[1][2..4])
-    for mi = 2 to length(ms) do
-        object m = ms[mi]
-        printf(OUT,",\n\t\t%s = %s + %s", m[2..4])
+    for mi = 1 to length(ms) do
+        output_curloption(ms[mi])
     end for
-    puts(OUT,"\n\n")
+    puts(OUT, "\n")
 end if
 
 ms = regex:all_matches( curlproto_pattern, file_data)
+procedure output_curlproto(sequence m)
+	printf(OUT,"public constant %s = power(2,%s)\n", m[2..3])
+end procedure
+
 if sequence(ms) then
     for mi = 1 to length(ms) do
         object m = ms[mi]
-        printf(OUT,"public constant %s = power(2,%s)\n", m[2..3])
+	output_curlproto(m)
     end for
 end if
 
@@ -167,8 +177,7 @@ end function
 
 sequence types = {"C_BOOL", "C_INT", "C_UINT", "C_DOUBLE", "C_LONGLONG", "C_LONG", "C_ULONG", "C_POINTER"} -- list of declared c types in std/dll.e
 
-for h = 1 to length(function_matches) do
-    sequence m = function_matches[h]
+procedure output_function(sequence m)
     sequence FD = m[2]
     sequence RT = m[3]
     sequence FN = m[5]
@@ -215,9 +224,6 @@ for h = 1 to length(function_matches) do
                     end if
                     argument_names = append(argument_names, argument_name)
                     if not eu:find(next_type, types) then
-                    	if equal("C_CURL_FORMGET_CALLBACK",next_type) then
-                    		trace(1)
-                    	end if
                         puts(OUT, "export constant " & next_type & " = C_POINTER\n")
                         flush(OUT)
                         types = append(types, next_type)
@@ -259,7 +265,14 @@ for h = 1 to length(function_matches) do
         printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, join(",", argument_names)})
         printf(OUT, "end function\n", {})
     end if
+end procedure
+
+
+
+for h = 1 to length(function_matches) do
+    output_function(function_matches[h])
 end for
+
 pretty_print(io:STDERR, sort(function_set), {2})
 printf(io:STDERR, "= %d functions imported.", {length(function_matches)})
 flush(OUT)
