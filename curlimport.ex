@@ -27,6 +27,7 @@ include std/sort.e
 include std/text.e
 include std/pretty.e
 include std/filesys.e
+include std/map.e
 
 constant macroconstant     = regex:new("^ *#define +([A-Z][A-Z_]*) +([0-9]+)", MULTILINE)
 constant macrosymbol       = regex:new("^ *#define +([A-Z][A-Z_]*) +([A-Z][A-Z_0-9]*)", MULTILINE)
@@ -94,6 +95,10 @@ constant dll = open_dll(` & pretty_sprint(dlls, {2}) & `)
 
 `)
 
+
+
+map:map symbols =map:new()
+
 object ms
 
 ms = regex:all_matches( macroconstant, file_data)
@@ -102,7 +107,9 @@ procedure output_macroconstant(sequence m)
 end procedure
 if sequence(ms) then
     for mi = 1 to length(ms) do
-        output_macroconstant(ms[mi])
+        sequence m = ms[mi]
+    	map:put(symbols, ms[mi][2], {m, {}, routine_id("output_macroconstant")})
+        -- output_macroconstant(ms[mi])
     end for
 end if
 
@@ -113,7 +120,9 @@ end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
-    	output_macrosymbol(ms[mi])
+    	sequence m = ms[mi]
+    	map:put(symbols, m[2], {m, m[3..3], routine_id("output_macrosymbol")})
+    	-- output_macrosymbol(ms[mi])
     end for
     puts(OUT, "\n")
 end if
@@ -126,7 +135,9 @@ end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
-        output_curloption(ms[mi])
+    	sequence m = ms[mi]
+    	map:put(symbols, m[2], {m, m[3..3], routine_id("output_curloption")})
+        --output_curloption(ms[mi])
     end for
     puts(OUT, "\n")
 end if
@@ -138,8 +149,10 @@ end procedure
 
 if sequence(ms) then
     for mi = 1 to length(ms) do
-        object m = ms[mi]
-	output_curlproto(m)
+        -- object m = ms[mi]
+	--output_curlproto(m)
+    	sequence m = ms[mi]
+    	map:put(symbols, m[2], {m, {}, routine_id("output_curlproto")})
     end for
 end if
 
@@ -270,7 +283,25 @@ end procedure
 
 
 for h = 1 to length(function_matches) do
-    output_function(function_matches[h])
+    	sequence m = function_matches[h]
+    	--map:put(symbols, m[5], {m, {}, routine_id("output_function")})
+    	--output_function(function_matches[h])
+end for
+
+sequence sks = map:keys(symbols)
+
+for i = 1 to length(sks) do
+	sequence data = map:get(symbols, sks[i])
+	integer r_id = data[3]
+	sequence dep = data[2]
+	data = data[1]
+	call_proc(r_id, {data})
+end for
+
+
+for h = 1 to length(function_matches) do
+    	sequence m = function_matches[h]
+    	output_function(m)
 end for
 
 pretty_print(io:STDERR, sort(function_set), {2})
