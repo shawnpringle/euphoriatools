@@ -45,7 +45,8 @@ integer OUT = STDOUT, IN = STDIN
 
 procedure usage()
 	-- usage help stub
-      abort(0)
+	puts(io:STDERR, "eui curlimport.ex [dll list] [C header file] [euphoria target]\n")
+        abort(0)
 end procedure
 
 
@@ -60,19 +61,21 @@ if length(args) < 5 then
       usage()
 end if
 
-stringASCII output = args[$-1]
-stringASCII input   = args[$]
-if compare(output,"-") then
+stringASCII output = args[$]
+stringASCII input   = args[$-1]
+if eu:compare(output,"-") then
 	if file_exists(output) then
 		printf(io:STDERR, "The output file, \"%s\", already exists.\n", {output})
 		abort(1)
 	end if
 	OUT = open(output, "w")
+	output = '\'' & output & '\''
 else
 	output = "standard out"
 end if
-if compare(input, "-") then
+if eu:compare(input, "-") then
 	IN     = open(input, "r")
+	input = "\'" & input & "\'"
 else
 	input = "standard in"
 end if
@@ -84,7 +87,7 @@ if equal(dlls, {}) then
 	abort(1)
 end if
 
-printf(io:STDOUT, "Will write to '%s' and read from '%s' and will use the dlls listed %s?", {output, input, sprint(dlls)})
+printf(io:STDOUT, "Will write to %s and read from %s and will use the dlls listed %s?", {output, input, sprint(dlls)})
 PETC()
 
 
@@ -292,7 +295,7 @@ sequence_of_strings resolved = {}
 -- can be resolved.
 -- return 1 if succesful and 0 on failure
 function resolve(sequence key)
-	if find(key, resolved) then
+	if eu:find(key, resolved) then
 		return 1
 	end if
 	object data = map:get(symbols, key)

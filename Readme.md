@@ -25,19 +25,64 @@ It is recommended that you create a wrapper using the generated dot-e file.
 
 update the CURL constants with:
 
-On Linux:
-```shell
-eui curlimport.ex libcurl.so libcurl.dll < /usr/include/curl/curl.h > primitive_curl.e
-```
-
 On Windows:
 ```shell
-eui curlimport.ex libcurl.so libcurl.dll < d:\minGW\include\curl\curl.h > primitive_curl.e
+eui curlimport.ex libcurl.so libcurl.dll d:\minGW\include\curl\curl.h _curl.e
 ```
 
-On Windows, the path to the Curl header will vary.
+If you are looking for where you can find libcurl.dll.  I found mine in OpenShot.  Install OpenShot for Windows and copy all the DLLs from the dll directory of OpenShot.  You might already have it somewhere on your hard drive.
 
-Then run curlimport_test.ex.  If you don't have curl libraries installed it wont work but it would be great if you have them.
+**Some Dll's when loaded prompt loading of other DLLs on the system.  open_dll will return 0, but give you no other information.  Save yourself a headache and copy all of the DLLS from OpenShot or some other package that has libcurl.dll in its directory**
+
+
+On Linux:
+```shell
+eui curlimport.ex libcurl.so libcurl.dll /usr/include/curl/curl.h _curl.e
+```
+
+## Improted Symbols
+
+Once you have generated a file called _curl.e, you can create a manual file called curl.e.
+-- in curl.e --
+```
+public include _curl.e
+
+-- generator worked fine, make it more Euphoria style.
+public function curl_strequal(cstring s1, cstring s2)
+	atom p1 = allocate_string(s1, 1)
+	atom p2 = allocate_string(s2, 1)
+	return p:curl_strequal(p1, p2)
+end function
+
+
+-- generator didn't work for this one, let's redo this one completely
+include std/dll.e
+include std/machine.e
+constant dll = open_dll({
+  "libcurl.dll",
+  "libcurl.so"
+})
+
+constant C_CURLCODE = C_POINTER
+-- The generate imports this one wrong.
+export constant curl_easy_setoptx = define_c_func(dll, "+curl_easy_setopt",{C_POINTER, C_INT, C_POINTER}, C_CURLCODE)
+public function curl_easy_setopt(atom curl, atom option, object data)
+        atom string_pointer = 0
+        atom curl_code
+	if sequence(data) then
+	     string_pointer = allocate_string(data)
+	     data = string_pointer
+	end if
+	curl_code =  c_func(curl_easy_setoptx, {curl, option, data})
+	if string_pointer then
+		free(string_pointer)
+	end if
+	return curl_code
+end function
+```
+
+
+
 
 
 # Formateum
