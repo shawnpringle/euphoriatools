@@ -5,7 +5,7 @@
 --
 
 -- various functions that brought me joy: $Revision$. 
--- modified $Date: 2010-10-08 14:14:39 -0300 (Vie, 08 Oct 2010) $ 
+-- modified $Date: 2020-09-23 12:25:00 -0300 (Wed, 23 Sep 2020) $ 
 
 include misc.e
 include file.e
@@ -134,6 +134,10 @@ public type string_of_strings( object x )
 		end if
 	end for
 	return 1
+end type
+
+public type sequence_of_strings( object x )
+	return string_of_strings(x)
 end type
 
 --**

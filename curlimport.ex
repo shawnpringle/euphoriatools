@@ -28,7 +28,10 @@ include std/text.e
 include std/pretty.e
 include std/filesys.e
 include std/map.e
+include std/sequence.e
 
+
+constant calling_convention = "+"
 constant macroconstant     = regex:new("^ *#define +([A-Z][A-Z_]*) +([0-9]+)", MULTILINE)
 constant macrosymbol       = regex:new("^ *#define +([A-Z][A-Z_]*) +([A-Z][A-Z_0-9]*)", MULTILINE)
 constant curloptionpattern = regex:new(`CURLOPT\(([A-Z][A-Z_0-9]*), ([A-Z][A-Z0-9_]*), ([0-9]+)`, MULTILINE)
@@ -64,7 +67,6 @@ if compare(output,"-") then
 		printf(io:STDERR, "The output file, \"%s\", already exists.\n", {output})
 		abort(1)
 	end if
-
 	OUT = open(output, "w")
 else
 	output = "standard out"
@@ -225,7 +227,7 @@ procedure output_function(sequence m)
                 -- printf(OUT, "argument = \'%s\'\n", {argument})
                 -- pretty_print(OUT, argument_groups, {2})
                 stringASCII next_type = c_type_to_euc_type(argument, argument_groups)
-                if compare(next_type,"") then
+                if eu:compare(next_type,"") then
                     if equal(argument_name,"") or atom(argument_name) or eu:find(argument_name, argument_names) then
                         argument_name = regex:find_replace(regex:new("\\*"), argument_groups[$], "")
                     end if
@@ -268,40 +270,75 @@ procedure output_function(sequence m)
         types = append(types, C_RT)
     end if
     if equal(RT, "") then
-        printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, FN, arg_list})
+        printf(OUT, "export constant %sx = define_c_proc(dll, \"%s\",{%s})\n", {FN, calling_convention & FN, arg_list})
         printf(OUT, "export procedure %s(%s)\n", {FN, eu_arg_list})
-        printf(OUT, "\tc_proc(%sx, {%s})\n", {FN, join(",", argument_names)})
+        printf(OUT, "\tc_proc(%sx, {%s})\n", {FN, joy:join(",", argument_names)})
         printf(OUT, "end procedure\n", {})
     else
-        printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, FN, arg_list, RT})
+        printf(OUT, "export constant %sx = define_c_func(dll, \"%s\",{%s}, %s)\n", {FN, calling_convention & FN, arg_list, RT})
         printf(OUT, "export function %s(%s)\n", {FN, eu_arg_list})
-        printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, join(",", argument_names)})
+        printf(OUT, "\treturn c_func(%sx, {%s})\n", {FN, joy:join(",", argument_names)})
         printf(OUT, "end function\n", {})
     end if
 end procedure
 
 
+constant sks = map:keys(symbols)
 
-for h = 1 to length(function_matches) do
-    	sequence m = function_matches[h]
-    	--map:put(symbols, m[5], {m, {}, routine_id("output_function")})
-    	--output_function(function_matches[h])
-end for
+sequence_of_strings unresolved = sort(sks)
+sequence_of_strings resolved = {}
 
-sequence sks = map:keys(symbols)
+-- moves key from unresolved to resolved iff all dependencies 
+-- can be resolved.
+-- return 1 if succesful and 0 on failure
+function resolve(sequence key)
+	if find(key, resolved) then
+		return 1
+	end if
+	object data = map:get(symbols, key)
+	if atom(data) then
+		return 0
+	end if
+	sequence dep = data[2]
+	for k = 1 to length(dep) do
+		sequence d = dep[k]
+		if not resolve(d) then
+			return 0
+		end if
+	end for
+	resolved = append(resolved, key)
+	unresolved = remove_item(key, unresolved)
+	return 1
+end function
+trace(1)
+resolve("CURLOPT_URL")
+pretty_print(1, resolved, {2})
 
-for i = 1 to length(sks) do
-	sequence data = map:get(symbols, sks[i])
+for i = 1 to length(unresolved) do
+        if i > length(unresolved) then
+        	exit
+        end if
+	sequence key = unresolved[i]
+	sequence data = map:get(symbols, key)
 	integer r_id = data[3]
 	sequence dep = data[2]
-	data = data[1]
-	call_proc(r_id, {data})
+	sequence m = data[1]
+	if resolve(key) then
+	end if
 end for
 
+for i = 1 to length(resolved) do
+	sequence key = resolved[i]
+	sequence data = map:get(symbols, key)
+	integer r_id = data[3]
+	sequence dep = data[2]
+	sequence m = data[1]
+	call_proc(r_id, {m})		
+end for
 
 for h = 1 to length(function_matches) do
     	sequence m = function_matches[h]
-    	output_function(m)
+    	output_function(function_matches[h])
 end for
 
 pretty_print(io:STDERR, sort(function_set), {2})
